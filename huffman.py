@@ -28,6 +28,23 @@ class Node:
         # Essa função permite comparar dois nós pela frequência usando o símbolo menor que
         return self.freq < other.freq
 
+def bits_para_bytes(bits: str) -> bytes:
+    # Preenche para múltiplo de 8 bits (se necessário)
+    padding = 8 - len(bits) % 8 if len(bits) % 8 != 0 else 0
+    bits += '0' * padding
+    byte_array = bytearray()
+
+    for i in range(0, len(bits), 8):
+        byte = bits[i:i+8]
+        byte_array.append(int(byte, 2))
+
+    return bytes([padding]) + bytes(byte_array)  # Primeiro byte = padding
+
+def bytes_para_bits(data: bytes) -> str:
+    padding = data[0]
+    bitstring = ''.join(f'{byte:08b}' for byte in data[1:])
+    return bitstring[:-padding] if padding else bitstring
+
 def dic_freq(text):
     '''
     A partir do texto fornecido cria uma estrutura de dados com a frequência de 
@@ -158,12 +175,22 @@ def decodificar(encoded_text, tree):
     return decodificado
 
 def salvar(filename, encoded_text, tree):
+    # Converter para bytes reais
+    bin_data = bits_para_bytes(encoded_text)
+
     with open(filename, 'wb') as f:
-        pickle.dump((encoded_text, tree), f)
+        # Salvar árvore primeiro (com pickle)
+        # pickle.dump(tree, f)  DESCOMENTARRRRRRRRRRRRR
+        # Salvar os dados binários
+        f.write(bin_data)
+
 
 def carregar(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        tree = pickle.load(f)
+        bin_data = f.read()
+        encoded_text = bytes_para_bits(bin_data)
+        return encoded_text, tree
 
 def desenhar_arvore(tree, filename="huffman_tree"):
     dot = Digraph()
