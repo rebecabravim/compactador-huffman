@@ -1,6 +1,5 @@
 # huffman.py
 import os
-import pickle
 from tkinter import filedialog, messagebox, Tk, Button, Label
 from graphviz import Digraph
 import os
@@ -11,8 +10,8 @@ class Node:
     Representa um nó da árvore de Huffman
 
     Atributos:
-    char: o caractér do texto (pode ser nulo).
-    freq: a frequência do caractér no texto (ou a soma dos nós filhos).
+    char: o caráter do texto (pode ser nulo).
+    freq: a frequência do caráter no texto (ou a soma dos nós filhos).
     left: nó filho à esquerda.
     right: nó filho a direita
 
@@ -28,33 +27,17 @@ class Node:
         # Essa função permite comparar dois nós pela frequência usando o símbolo menor que
         return self.freq < other.freq
 
-def bits_para_bytes(bits: str) -> bytes:
-    # Preenche para múltiplo de 8 bits (se necessário)
-    padding = 8 - len(bits) % 8 if len(bits) % 8 != 0 else 0
-    bits += '0' * padding
-    byte_array = bytearray()
-
-    for i in range(0, len(bits), 8):
-        byte = bits[i:i+8]
-        byte_array.append(int(byte, 2))
-
-    return bytes([padding]) + bytes(byte_array)  # Primeiro byte = padding
-
-def bytes_para_bits(data: bytes) -> str:
-    padding = data[0]
-    bitstring = ''.join(f'{byte:08b}' for byte in data[1:])
-    return bitstring[:-padding] if padding else bitstring
 
 def dic_freq(text):
     '''
     A partir do texto fornecido cria uma estrutura de dados com a frequência de 
-    cada caractér no texto
+    cada caráter no texto
     
     Parâmetros:
     text: texto para contruir a tabela
 
     Retorna:
-    Dicionário cuja chave é o caractér e valor sua frequência
+    Dicionário cuja chave é o caráter e valor sua frequência
     '''
     freq = {}
     for char in text:
@@ -67,7 +50,7 @@ def arvore_huffman(freq_table):
     A partir do dicionário fornecido cria a árvore de Huffman.
     
     Parâmetros:
-    freq_table: dicionário contendo a frequência de cada caractér.
+    freq_table: dicionário contendo a frequência de cada caráter.
 
     Retorna:
     O nó raiz da árvore de Huffman.
@@ -86,7 +69,7 @@ def arvore_huffman(freq_table):
         # Tira o segundo menor nó da fila (que agora é o menor pois
         # já tiramos o menor) e armazena na variável node2.
         node2 = fila.pop(0)
-        # Cria um nó sem caractér com a soma dos nós menores.
+        # Cria um nó sem caráter com a soma dos nós menores.
         merge = Node(None, node1.freq + node2.freq)
         # O nó a esquerda desse novo nó é o menor (node1, visto que
         # a lista está ordenada) e o nó da direita o maior (node2).
@@ -104,28 +87,28 @@ def arvore_huffman(freq_table):
 def criar_codigos(node, current_code="", codes={}):
     '''
     Função recursiva que percorre a árvore. Recebe o nó raiz da árvore e retorna 
-    um dicionário com o valor codificado de cada caractér presente na árvore.
+    um dicionário com o valor codificado de cada caráter presente na árvore.
 
     Parâmetros:
     node: nó raiz da árvore
-    current_code: o código sendo montado de um determinado caractér.
-    codes: o dicionário contendo os valores em binário de cada caractér.
+    current_code: o código sendo montado de um determinado caráter.
+    codes: o dicionário contendo os valores em binário de cada caráter.
 
     Retorna:
-    O dicionário contendo os valores em binário de cada caractér.
+    O dicionário contendo os valores em binário de cada caráter.
     '''
 
     # Quando caminha e não um nó, não faz nada
     if node is None:
         return
-    # Quando acha um nó com algum caractér adiciona na lista dos códigos
-    # o código do caractér
+    # Quando acha um nó com algum caráter adiciona na lista dos códigos
+    # o código do caráter
     if node.char is not None:
         codes[node.char] = current_code
 
     # Enquanto não acha o nó caminha para a esquerda e para
     # direita, quando caminha para a esquerda adiciona 0 ao código
-    # do caractér, quando para a direita, adiciona 1.
+    # do caráter, quando para a direita, adiciona 1.
     criar_codigos(node.left, current_code + "0", codes)
     criar_codigos(node.right, current_code + "1", codes)
     return codes
@@ -137,13 +120,13 @@ def codificar(text, codes):
     
     Parâmetros:
     text: texto para ser codificado para binário.
-    codes: códigos de cada caractér presente no texto.
+    codes: códigos de cada caráter presente no texto.
 
     Retorna:
     O texto codificado.
     '''
-    # Vai retornar uma string com o código de cada letra (caractér) 
-    # no lugar dos caractéres do texto.
+    # Vai retornar uma string com o código de cada letra (caráter) 
+    # no lugar dos caráteres do texto.
     return ''.join(codes[char] for char in text)
 
 def decodificar(encoded_text, tree):
@@ -165,7 +148,7 @@ def decodificar(encoded_text, tree):
         # Para cada bit do texto, anda ná árvore pra esquerda (se 0)
         # ou pra direita (se 1)
         node = node.left if bit == '0' else node.right
-        # Se caminhar para None, significa que adiciona o caractér
+        # Se caminhar para None, significa que adiciona o caráter
         # do nó atual ao texto decodificado
         if node.char is not None:
             decodificado += node.char
@@ -174,23 +157,68 @@ def decodificar(encoded_text, tree):
             node = tree
     return decodificado
 
+def serializar_arvore(node):
+    if node.char is not None:
+        return '1' + f'{ord(node.char):08b}'  # folha: flag 1 + 8 bits do caractere
+    return '0' + serializar_arvore(node.left) + serializar_arvore(node.right)  # interno: flag 0
+
+def desserializar_arvore(bits_iter):
+    try:
+        flag = next(bits_iter)
+    except StopIteration:
+        return None
+
+    if flag == '1':
+        char_bits = ''.join(next(bits_iter) for _ in range(8))
+        char = chr(int(char_bits, 2))
+        return Node(char=char)
+    else:
+        left = desserializar_arvore(bits_iter)
+        right = desserializar_arvore(bits_iter)
+        node = Node()
+        node.left = left
+        node.right = right
+        return node
+    
+def bits_para_bytes(bits: str) -> bytes:
+    # Preenche para múltiplo de 8 bits (se necessário)
+    padding = 8 - len(bits) % 8 if len(bits) % 8 != 0 else 0
+    bits += '0' * padding
+    byte_array = bytearray()
+
+    for i in range(0, len(bits), 8):
+        byte = bits[i:i+8]
+        byte_array.append(int(byte, 2))
+
+    return bytes([padding]) + bytes(byte_array)  # Primeiro byte = padding
+
+def bytes_para_bits(data: bytes) -> str:
+    padding = data[0]
+    bitstring = ''.join(f'{byte:08b}' for byte in data[1:])
+    return bitstring[:-padding] if padding else bitstring
+
 def salvar(filename, encoded_text, tree):
-    # Converter para bytes reais
-    bin_data = bits_para_bytes(encoded_text)
+    arvore_bits = serializar_arvore(tree)
+    arvore_bytes = bits_para_bytes(arvore_bits)
+    dados_bytes = bits_para_bytes(encoded_text)
 
     with open(filename, 'wb') as f:
-        # Salvar árvore primeiro (com pickle)
-        # pickle.dump(tree, f)  DESCOMENTARRRRRRRRRRRRR
-        # Salvar os dados binários
-        f.write(bin_data)
-
+        f.write(len(arvore_bytes).to_bytes(4, 'big'))  # Tamanho da árvore (4 bytes)
+        f.write(arvore_bytes)  # Árvore serializada
+        f.write(dados_bytes)   # Dados comprimidos
 
 def carregar(filename):
     with open(filename, 'rb') as f:
-        tree = pickle.load(f)
-        bin_data = f.read()
-        encoded_text = bytes_para_bits(bin_data)
-        return encoded_text, tree
+        tam_arvore = int.from_bytes(f.read(4), 'big')         # Lê tamanho da árvore
+        arvore_bytes = f.read(tam_arvore)                     # Lê árvore
+        dados_bytes = f.read()                                # Lê o restante (dados)
+
+    arvore_bits = bytes_para_bits(arvore_bytes)
+    bits_iter = iter(arvore_bits)
+    tree = desserializar_arvore(bits_iter)
+
+    encoded_text = bytes_para_bits(dados_bytes)
+    return encoded_text, tree
 
 def desenhar_arvore(tree, filename="huffman_tree"):
     dot = Digraph()
@@ -229,8 +257,11 @@ def compactar():
     tree = arvore_huffman(freq_table)
     codes = criar_codigos(tree)
     encoded_text = codificar(text, codes)
+    encoded_text_path = file_path.replace(".txt","_encoded.txt")
 
-    compressed_path = file_path + ".huff"
+    with open(encoded_text_path, 'w') as f:
+        f.write(encoded_text)
+    compressed_path = file_path.replace(".txt",".huff")
     salvar(compressed_path, encoded_text, tree)
 
     desenhar_arvore(tree)
