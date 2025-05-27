@@ -158,11 +158,29 @@ def decodificar(encoded_text, tree):
     return decodificado
 
 def serializar_arvore(node):
+    '''
+    Serializa uma árvore de Huffman em uma string de bits.
+
+    Parâmetros:
+    node (Node): O nó raiz da árvore de Huffman a ser serializada.
+
+    Retorna:
+    Uma string de bits ('0's e '1's) representando a estrutura da árvore.
+    '''
     if node.char is not None:
         return '1' + f'{ord(node.char):08b}'  # folha: flag 1 + 8 bits do caractere
     return '0' + serializar_arvore(node.left) + serializar_arvore(node.right)  # interno: flag 0
 
 def desserializar_arvore(bits_iter):
+    '''
+    Reconstrói a árvore de Huffman a partir de um iterador de bits serializados.
+
+    Parâmetros:
+    bits_iter: iterador sobre a string de bits gerada pela serialização.
+
+    Retorna:
+    A raiz da árvore de Huffman reconstruída.
+    '''
     try:
         flag = next(bits_iter)
     except StopIteration:
@@ -180,9 +198,18 @@ def desserializar_arvore(bits_iter):
         node.right = right
         return node
     
-def bits_para_bytes(bits: str) -> bytes:
+def string_bits_para_bytes(bits: str) -> bytes:
+    '''
+    Converte uma string de bits ('0' e '1') em um objeto bytes.
+
+    Parâmetros:
+    bits (str): String de bits a ser convertida (ex: '101010').
+
+    Retorna:
+    Sequência de bytes, com o primeiro byte representando o padding adicionado.
+    '''
     # Preenche para múltiplo de 8 bits (se necessário)
-    padding = 8 - len(bits) % 8 if len(bits) % 8 != 0 else 0
+    padding = (8 - len(bits) % 8) if (len(bits) % 8 != 0) else 0
     bits += '0' * padding
     byte_array = bytearray()
 
@@ -192,15 +219,36 @@ def bits_para_bytes(bits: str) -> bytes:
 
     return bytes([padding]) + bytes(byte_array)  # Primeiro byte = padding
 
-def bytes_para_bits(data: bytes) -> str:
+def bytes_para_string_bits(data: bytes) -> str:
+    '''
+    Converte uma sequência de bytes em uma string de bits, removendo os bits de padding extras.
+    Parâmetro:
+    data (bytes): dados binários, com o primeiro byte indicando o número de bits de padding no final.
+
+    Retorna:
+    str: sequência de bits original (sem o padding).
+    '''
     padding = data[0]
     bitstring = ''.join(f'{byte:08b}' for byte in data[1:])
     return bitstring[:-padding] if padding else bitstring
 
 def salvar(filename, encoded_text, tree):
+    '''
+    Salva os dados compactados e a árvore de Huffman em um arquivo binário (.huff).
+
+    Parâmetros:
+    filename (str): caminho do arquivo onde os dados serão salvos.
+    encoded_text (str): texto codificado como uma string de bits.
+    tree (Node): raiz da árvore de Huffman usada na codificação.
+
+    O arquivo salvo contém:
+    4 bytes iniciais com o tamanho da árvore serializada.
+    Bytes da árvore serializada (com padding).
+    Bytes dos dados compactados (com padding).
+    '''
     arvore_bits = serializar_arvore(tree)
-    arvore_bytes = bits_para_bytes(arvore_bits)
-    dados_bytes = bits_para_bytes(encoded_text)
+    arvore_bytes = string_bits_para_bytes(arvore_bits)
+    dados_bytes = string_bits_para_bytes(encoded_text)
 
     with open(filename, 'wb') as f:
         f.write(len(arvore_bytes).to_bytes(4, 'big'))  # Tamanho da árvore (4 bytes)
@@ -208,17 +256,30 @@ def salvar(filename, encoded_text, tree):
         f.write(dados_bytes)   # Dados comprimidos
 
 def carregar(filename):
+    '''
+    Carrega um arquivo compactado no formato Huffman e recupera os dados codificados e a árvore.
+
+    Parâmetro:
+    filename (str): caminho do arquivo .huff a ser carregado.
+
+    Retorna:
+    Tuple[str, Node]: uma tupla contendo a string de bits codificados;
+    raiz da árvore de Huffman reconstruída.
+    '''
     with open(filename, 'rb') as f:
         tam_arvore = int.from_bytes(f.read(4), 'big')         # Lê tamanho da árvore
         arvore_bytes = f.read(tam_arvore)                     # Lê árvore
         dados_bytes = f.read()                                # Lê o restante (dados)
 
-    arvore_bits = bytes_para_bits(arvore_bytes)
+    arvore_bits = bytes_para_string_bits(arvore_bytes)
     bits_iter = iter(arvore_bits)
     tree = desserializar_arvore(bits_iter)
 
-    encoded_text = bytes_para_bits(dados_bytes)
-    return encoded_text, tree
+    encoded_text = bytes_para_string_bits(dados_bytes)
+    return encoded_text, tree 
+
+# ------------------------------------------------------------------
+# Definição das funções da interface gráfica
 
 def desenhar_arvore(tree, filename="huffman_tree"):
     dot = Digraph()
@@ -241,10 +302,8 @@ def desenhar_arvore(tree, filename="huffman_tree"):
 
     add_nodes(tree)
     dot.render(filename, format='png', cleanup=True)
-    os.startfile(f"{filename}.png") 
+    os.startfile(f"{filename}.png")
 
-# ------------------------------------------------------------------
-# Definição das funções da interface gráfica
 def compactar():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
     if not file_path:
